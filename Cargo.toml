@@ -1,0 +1,10 @@
+[package]
+name = "raytrace"
+version = "0.1.0"
+edition = "2024"
+
+[profile.release]
+opt-level = 3
+
+[dependencies]
+rand = {git ="https://github.com/rust-random/rand"}
