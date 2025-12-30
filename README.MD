@@ -3,5 +3,5 @@
 ![out.jpg](out.jpg)
 
 # TODO
-README
-EVERYTHING ELSE
+- README
+- EVERYTHING ELSE
