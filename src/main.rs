@@ -44,15 +44,53 @@ fn main() {
         .open("out.ppm")
         .unwrap();
 
-    let nx = 1920;
-    let ny = 1080;
-    let ns = 200;
+    let nx = 1200;
+    let ny = 675;
+    let ns = 100;
 
     writeln!(file, "P3\n{} {}\n255", nx, ny).unwrap();
 
-    let lookfrom = Vec3::new(3.0, 3.0, 2.0);
-    let lookat = Vec3::new(0.0, 0.0, -1.0);
+    let mut world = HittableList::new();
+
+    // Ground
+    let ground_material = Box::new(Lambertian::new(Vec3::new(0.5, 0.5, 0.5)));
+    world.add(Box::new(Sphere::new(Vec3::new(0.0, -1000.0, 0.0), 1000.0, ground_material)));
+
+    let mut rng = rng();
+
+    for a in -11..11 {
+        for b in -11..11 {
+            let choose_mat = rng.random_range(0.0..1.0);
+            let center = Vec3::new(
+                a as f64 + 0.9 * rng.random_range(0.0..1.0),
+                0.2,
+                b as f64 + 0.9 * rng.random_range(0.0..1.0)
+            );
+
+            if (center - Vec3::new(4.0, 0.2, 0.0)).length() > 0.9 {
+                if choose_mat < 0.8 {
+                    let albedo = Vec3::random() * Vec3::random();
+                    world.add(Box::new(Sphere::new(center, 0.2, Box::new(Lambertian::new(albedo)))));
+                } else if choose_mat < 0.95 {
+                    let albedo = Vec3::random_range(0.5, 1.0);
+                    let fuzz = rng.random_range(0.0..0.5);
+                    world.add(Box::new(Sphere::new(center, 0.2, Box::new(Metal::new(albedo, fuzz)))));
+                } else {
+                    world.add(Box::new(Sphere::new(center, 0.2, Box::new(Dielectric::new(1.5)))));
+                }
+            }
+        }
+    }
+
+    // Big Spheres
+    world.add(Box::new(Sphere::new(Vec3::new(0.0, 1.0, 0.0), 1.0, Box::new(Dielectric::new(1.5)))));
+    world.add(Box::new(Sphere::new(Vec3::new(-4.0, 1.0, 0.0), 1.0, Box::new(Lambertian::new(Vec3::new(0.4, 0.2, 0.1))))));
+    world.add(Box::new(Sphere::new(Vec3::new(4.0, 1.0, 0.0), 1.0, Box::new(Metal::new(Vec3::new(0.7, 0.6, 0.5), 0.0)))));
+
+    let lookfrom = Vec3::new(13.0, 2.0, 3.0);
+    let lookat = Vec3::new(0.0, 0.0, 0.0);
     let vup = Vec3::new(0.0, 1.0, 0.0);
+    let dist_to_focus = 10.0;
     let ipd = 0.06;
 
     let camera = Camera::new(
@@ -61,48 +99,18 @@ fn main() {
         vup,
         20.0,
         nx as f64 / ny as f64,
-        ipd
+        ipd,
+        0.6,
+        dist_to_focus
     );
 
-    let mut world = HittableList::new();
-
-    world.add(Box::new(Sphere::new(
-        Vec3::new(0.0, 0.0, -1.0),
-        0.5,
-        Box::new(Lambertian::new(Vec3::new(0.1, 0.2, 0.5)))
-    )));
-
-    world.add(Box::new(Sphere::new(
-        Vec3::new(0.0, -100.5, -1.0),
-        100.0,
-        Box::new(Lambertian::new(Vec3::new(0.8, 0.8, 0.0)))
-    )));
-
-    world.add(Box::new(Sphere::new(
-        Vec3::new(1.0, 0.0, -1.0),
-        0.5,
-        Box::new(Metal::new(Vec3::new(0.8, 0.6, 0.2), 0.0))
-    )));
-
-    world.add(Box::new(Sphere::new(
-        Vec3::new(-1.0, 0.0, -1.0),
-        0.5,
-        Box::new(Dielectric::new(1.5))
-    )));
-
-    world.add(Box::new(Sphere::new(
-        Vec3::new(-1.0, 0.0, -1.0),
-        -0.45,
-        Box::new(Dielectric::new(1.5))
-    )));
-
     for j in (0..ny).rev() {
+        eprint!("\rScanlines remaining: {} ", j);
         for i in 0..nx {
             let mut col_left = Vec3::new(0.0, 0.0, 0.0);
             let mut col_right = Vec3::new(0.0, 0.0, 0.0);
 
             for _ in 0..ns {
-                let mut rng = rng();
                 let u = (i as f64 + rng.random_range(0f64..1f64)) / nx as f64;
                 let v = (j as f64 + rng.random_range(0f64..1f64)) / ny as f64;
 
@@ -126,4 +134,5 @@ fn main() {
             writeln!(file, "{} {} {}", ir, ig, ib).unwrap();
         }
     }
+    eprintln!("\nDone.");
 }

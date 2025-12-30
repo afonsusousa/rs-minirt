@@ -8,13 +8,19 @@ pub struct Eye {
     pub lower_left_corner: Vec3,
     pub horizontal: Vec3,
     pub vertical: Vec3,
+    pub u: Vec3,
+    pub v: Vec3,
+    pub lens_radius: f64,
 }
 
 impl Eye {
-    pub fn get_ray(&self, u: f64, v: f64) -> Ray {
+    pub fn get_ray(&self, s: f64, t: f64) -> Ray {
+        let rd = Vec3::random_in_unit_disk() * self.lens_radius;
+        let offset = self.u * rd.x + self.v * rd.y;
+
         Ray::new(
-            self.origin,
-            self.lower_left_corner + self.horizontal * u + self.vertical * v - self.origin,
+            self.origin + offset,
+            self.lower_left_corner + self.horizontal * s + self.vertical * t - self.origin - offset,
         )
     }
 }
@@ -25,7 +31,16 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub fn new(lookfrom: Vec3, lookat: Vec3, vup: Vec3, vfov: f64, aspect: f64, ipd: f64) -> Camera {
+    pub fn new(
+        lookfrom: Vec3,
+        lookat: Vec3,
+        vup: Vec3,
+        vfov: f64,
+        aspect: f64,
+        ipd: f64,
+        defocus_angle: f64,
+        focus_dist: f64
+    ) -> Camera {
         let theta = vfov * PI / 180.0;
         let half_height = (theta / 2.0).tan();
         let half_width = aspect * half_height;
@@ -34,7 +49,7 @@ impl Camera {
         let u = vup.cross(w).unit_vector();
         let v = w.cross(u);
 
-        let focus_dist = (lookfrom - lookat).length();
+        let lens_radius = focus_dist * (defocus_angle * PI / 180.0 / 2.0).tan();
 
         let half_ipd = ipd / 2.0;
 
@@ -44,6 +59,9 @@ impl Camera {
             lower_left_corner: left_origin - u * half_width * focus_dist - v * half_height * focus_dist - w * focus_dist,
             horizontal: u * 2.0 * half_width * focus_dist,
             vertical: v * 2.0 * half_height * focus_dist,
+            u,
+            v,
+            lens_radius,
         };
 
         let right_origin = lookfrom + u * half_ipd;
@@ -52,6 +70,9 @@ impl Camera {
             lower_left_corner: right_origin - u * half_width * focus_dist - v * half_height * focus_dist - w * focus_dist,
             horizontal: u * 2.0 * half_width * focus_dist,
             vertical: v * 2.0 * half_height * focus_dist,
+            u,
+            v,
+            lens_radius,
         };
 
         Camera {

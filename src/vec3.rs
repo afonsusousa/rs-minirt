@@ -10,6 +10,10 @@ impl Vec3 {
     pub fn new(x: f64, y: f64, z: f64) -> Vec3 {
         Vec3 { x, y, z }
     }
+    pub fn random() -> Vec3 {
+        let mut rng = rng();
+        Vec3::new(rng.random(), rng.random(), rng.random())
+    }
 
     pub fn random_range(min: f64, max: f64) -> Vec3 {
         let mut rng = rng();
@@ -23,6 +27,20 @@ impl Vec3 {
     pub fn random_in_unit_sphere() -> Vec3 {
         loop {
             let p = Vec3::random_range(-1.0, 1.0);
+            if p.sqr_length() < 1.0 {
+                return p;
+            }
+        }
+    }
+
+    pub fn random_in_unit_disk() -> Vec3 {
+        let mut rng = rng();
+        loop {
+            let p = Vec3::new(
+                rng.random_range(-1.0..1.0),
+                rng.random_range(-1.0..1.0),
+                0.0
+            );
             if p.sqr_length() < 1.0 {
                 return p;
             }
