@@ -1,4 +1,4 @@
-# raytrace
+# rs-minirt
 
 ![out.jpg](out.jpg)
 
