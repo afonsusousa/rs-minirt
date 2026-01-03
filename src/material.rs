@@ -54,13 +54,15 @@ impl Material for Metal {
     }
 }
 
+#[derive(Clone)]
 pub struct Dielectric {
+    pub albedo: Vec3,
     pub ref_idx: f64,
 }
 
 impl Dielectric {
-    pub fn new(ref_idx: f64) -> Self {
-        Self { ref_idx }
+    pub fn new(ref_idx: f64, albedo: Vec3) -> Self {
+        Self { albedo, ref_idx }
     }
 
     fn reflectance(cosine: f64, ref_idx: f64) -> f64 {
@@ -72,7 +74,6 @@ impl Dielectric {
 
 impl Material for Dielectric {
     fn scatter(&self, r_in: &Ray, rec: &HitRecord) -> Option<(Vec3, Ray)> {
-        let attenuation = Vec3::new(1.0, 1.0, 1.0);
 
         let dot = r_in.direction().dot(rec.normal);
         let front_face = dot < 0.0;
@@ -99,6 +100,6 @@ impl Material for Dielectric {
         }
 
         let scattered = Ray::new(rec.p, direction);
-        Some((attenuation, scattered))
+        Some((self.albedo, scattered))
     }
 }
