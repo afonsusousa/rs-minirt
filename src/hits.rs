@@ -3,14 +3,14 @@ use crate::ray::Ray;
 use crate::vec3::Vec3;
 
 pub struct HitRecord<'a> {
-    pub t: f64,
+    pub t: f32,
     pub p: Vec3,
     pub normal: Vec3,
     pub material: &'a dyn Material,
 }
 
-pub trait Hittable {
-    fn hit(&self, ray: &Ray, t_min: f64, t_max: f64) -> Option<HitRecord<'_>>;
+pub trait Hittable: Send + Sync {
+    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord<'_>>;
 }
 
 pub struct HittableList {
@@ -28,7 +28,7 @@ impl HittableList {
 }
 
 impl Hittable for HittableList {
-    fn hit(&self, ray: &Ray, t_min: f64, t_max: f64) -> Option<HitRecord<'_>> {
+    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord<'_>> {
         let mut hit_anything: Option<HitRecord> = None;
         let mut closest_so_far = t_max;
 

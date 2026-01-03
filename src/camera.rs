@@ -1,4 +1,4 @@
-use std::f64::consts::PI;
+use std::f32::consts::PI;
 use crate::ray::Ray;
 use crate::vec3::Vec3;
 
@@ -10,11 +10,11 @@ pub struct Eye {
     pub vertical: Vec3,
     pub u: Vec3,
     pub v: Vec3,
-    pub lens_radius: f64,
+    pub lens_radius: f32,
 }
 
 impl Eye {
-    pub fn get_ray(&self, s: f64, t: f64) -> Ray {
+    pub fn get_ray(&self, s: f32, t: f32) -> Ray {
         let rd = Vec3::random_in_unit_disk() * self.lens_radius;
         let offset = self.u * rd.x + self.v * rd.y;
 
@@ -35,11 +35,11 @@ impl Camera {
         lookfrom: Vec3,
         lookat: Vec3,
         vup: Vec3,
-        vfov: f64,
-        aspect: f64,
-        ipd: f64,
-        defocus_angle: f64,
-        focus_dist: f64
+        vfov: f32,
+        aspect: f32,
+        ipd: f32,
+        defocus_angle: f32,
+        focus_dist: f32
     ) -> Camera {
         let theta = vfov * PI / 180.0;
         let half_height = (theta / 2.0).tan();

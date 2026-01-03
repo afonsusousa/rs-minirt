@@ -3,7 +3,7 @@ use crate::ray::Ray;
 use crate::hits::HitRecord;
 use crate::vec3::Vec3;
 
-pub trait Material {
+pub trait Material: Send + Sync {
     fn scatter(&self, r_in: &Ray, rec: &HitRecord) -> Option<(Vec3, Ray)>;
 }
 
@@ -32,11 +32,11 @@ impl Material for Lambertian {
 
 pub struct Metal {
     pub albedo: Vec3,
-    pub fuzz: f64,
+    pub fuzz: f32,
 }
 
 impl Metal {
-    pub fn new(albedo: Vec3, fuzz: f64) -> Self {
+    pub fn new(albedo: Vec3, fuzz: f32) -> Self {
         Self { albedo, fuzz: if fuzz < 1.0 { fuzz } else { 1.0 } }
     }
 }
@@ -57,15 +57,15 @@ impl Material for Metal {
 #[derive(Clone)]
 pub struct Dielectric {
     pub albedo: Vec3,
-    pub ref_idx: f64,
+    pub ref_idx: f32,
 }
 
 impl Dielectric {
-    pub fn new(ref_idx: f64, albedo: Vec3) -> Self {
+    pub fn new(ref_idx: f32, albedo: Vec3) -> Self {
         Self { albedo, ref_idx }
     }
 
-    fn reflectance(cosine: f64, ref_idx: f64) -> f64 {
+    fn reflectance(cosine: f32, ref_idx: f32) -> f32 {
         let mut r0 = (1.0 - ref_idx) / (1.0 + ref_idx);
         r0 = r0 * r0;
         r0 + (1.0 - r0) * (1.0 - cosine).powi(5)

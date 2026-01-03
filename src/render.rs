@@ -1,4 +1,6 @@
 use std::io::Write;
+use std::sync::{Arc, Mutex};
+use std::thread;
 use rand::{rng, Rng};
 use crate::camera::Camera;
 use crate::color::color;
@@ -12,10 +14,10 @@ pub struct Render {
     lookat: Vec3,
     lookfrom: Vec3,
     vup: Vec3,
-    vfov: f64,
-    ipd: f64,
-    aperture: f64,
-    focus_dist: f64,
+    vfov: f32,
+    ipd: f32,
+    aperture: f32,
+    focus_dist: f32,
 }
 
 impl Render {
@@ -34,43 +36,42 @@ impl Render {
         }
     }
 
-    pub fn lookat(&mut self, x: f64, y: f64, z: f64) -> &mut Self {
+    pub fn lookat(&mut self, x: f32, y: f32, z: f32) -> &mut Self {
         self.lookat = Vec3::new(x, y, z);
         self
     }
 
-    pub fn lookfrom(&mut self, x: f64, y: f64, z: f64) -> &mut Self {
+    pub fn lookfrom(&mut self, x: f32, y: f32, z: f32) -> &mut Self {
         self.lookfrom = Vec3::new(x, y, z);
         self
     }
 
-    pub fn vup(&mut self, x: f64, y: f64, z: f64) -> &mut Self {
+    pub fn vup(&mut self, x: f32, y: f32, z: f32) -> &mut Self {
         self.vup = Vec3::new(x, y, z);
         self
     }
 
-    pub fn vfov(&mut self, vfov: f64) -> &mut Self {
+    pub fn vfov(&mut self, vfov: f32) -> &mut Self {
         self.vfov = vfov;
         self
     }
 
-    pub fn ipd(&mut self, ipd: f64) -> &mut Self {
+    pub fn ipd(&mut self, ipd: f32) -> &mut Self {
         self.ipd = ipd;
         self
     }
 
-    pub fn aperture(&mut self, aperture: f64) -> &mut Self {
+    pub fn aperture(&mut self, aperture: f32) -> &mut Self {
         self.aperture = aperture;
         self
     }
 
-    pub fn focus_dist(&mut self, focus_dist: f64) -> &mut Self {
+    pub fn focus_dist(&mut self, focus_dist: f32) -> &mut Self {
         self.focus_dist = focus_dist;
         self
     }
 
     pub fn render_scene(&self, world: HittableList, anaglyph: bool) {
-
         let mut file = std::fs::OpenOptions::new()
             .create(true)
             .write(true)
@@ -80,51 +81,84 @@ impl Render {
 
         writeln!(file, "P3\n{} {}\n255", self.nx, self.ny).unwrap();
 
-        let mut rng = rng();
-
-        let camera = Camera::new(
+        let world = Arc::new(world);
+        let camera = Arc::new(Camera::new(
             self.lookfrom,
             self.lookat,
             self.vup,
             self.vfov,
-            self.nx as f64 / self.ny as f64,
+            self.nx as f32 / self.ny as f32,
             self.ipd,
             self.aperture,
             self.focus_dist
-        );
+        ));
 
-        for j in (0..self.ny).rev() {
-            eprint!("\rScanlines remaining: {} ", j);
-            for i in 0..self.nx {
-                let mut col_left = Vec3::new(0.0, 0.0, 0.0);
-                let mut col_right = Vec3::new(0.0, 0.0, 0.0);
+        let num_threads = std::thread::available_parallelism().unwrap().get();
+        let rows_per_thread = self.ny / num_threads as i32;
+        let mut handles = vec![];
 
-                for _ in 0..self.ns {
-                    let u = (i as f64 + rng.random_range(0f64..1f64)) / self.nx as f64;
-                    let v = (j as f64 + rng.random_range(0f64..1f64)) / self.ny as f64;
+        eprintln!("Rendering with {} threads...", num_threads);
 
-                    if anaglyph {
-                        let r_left = camera.left_eye.get_ray(u, v);
-                        col_left += color(&r_left, &world, 50);
+        for t in 0..num_threads {
+            let world = Arc::clone(&world);
+            let camera = Arc::clone(&camera);
+            let nx = self.nx;
+            let ny = self.ny;
+            let ns = self.ns;
+
+            let start_y = t as i32 * rows_per_thread;
+            let end_y = if t == num_threads - 1 { ny } else { (t + 1) as i32 * rows_per_thread };
+
+            handles.push(thread::spawn(move || {
+                let mut buffer = Vec::new();
+                let mut rng = rng();
+
+                for j in (start_y..end_y).rev() {
+                    for i in 0..nx {
+                        let mut col_left = Vec3::new(0.0, 0.0, 0.0);
+                        let mut col_right = Vec3::new(0.0, 0.0, 0.0);
+
+                        for _ in 0..ns {
+                            let u = (i as f32 + rng.random_range(0f32..1f32)) / nx as f32;
+                            let v = (j as f32 + rng.random_range(0f32..1f32)) / ny as f32;
+
+                            if anaglyph {
+                                let r_left = camera.left_eye.get_ray(u, v);
+                                col_left += color(&r_left, &world, 50);
+                            }
+
+                            let r_right = camera.right_eye.get_ray(u, v);
+                            col_right += color(&r_right, &world, 50);
+                        }
+
+                        if anaglyph { col_left /= ns as f32; }
+                        col_right /= ns as f32;
+
+                        if anaglyph { col_left = Vec3::new(col_left.x.sqrt(), col_left.y.sqrt(), col_left.z.sqrt()); }
+                        col_right = Vec3::new(col_right.x.sqrt(), col_right.y.sqrt(), col_right.z.sqrt());
+
+                        let ir = (255.99 * if anaglyph { col_left.r() } else { col_right.r() }) as i32;
+                        let ig = (255.99 * col_right.g()) as i32;
+                        let ib = (255.99 * col_right.b()) as i32;
+
+                        buffer.push(format!("{} {} {}", ir, ig, ib));
                     }
-
-                    let r_right = camera.right_eye.get_ray(u, v);
-                    col_right += color(&r_right, &world, 50);
                 }
+                buffer
+            }));
+        }
 
-                if anaglyph{ col_left /= self.ns as f64;}
-                col_right /= self.ns as f64;
+        let mut results = Vec::new();
+        for handle in handles {
+            results.push(handle.join().unwrap());
+        }
 
-                if anaglyph { col_left = Vec3::new(col_left.x.sqrt(), col_left.y.sqrt(), col_left.z.sqrt()); }
-                col_right = Vec3::new(col_right.x.sqrt(), col_right.y.sqrt(), col_right.z.sqrt());
-
-                let ir = (255.99 * if anaglyph {col_left.r()} else {col_right.r()}) as i32;
-                let ig = (255.99 * col_right.g()) as i32;
-                let ib = (255.99 * col_right.b()) as i32;
-
-                writeln!(file, "{} {} {}", ir, ig, ib).unwrap();
+        for buffer in results.iter().rev() {
+            for line in buffer {
+                writeln!(file, "{}", line).unwrap();
             }
         }
+
         eprintln!("\nDone.");
     }
 }
