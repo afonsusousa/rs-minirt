@@ -10,6 +10,7 @@ mod camera;
 mod material;
 mod render;
 mod color;
+mod bounds;
 
 use crate::vec3::Vec3;
 use crate::render::Render;
@@ -86,7 +87,7 @@ fn random_scene() -> HittableList {
 fn main() {
     let world = random_scene();
 
-    let mut render = Render::new(1200, 675, 500);
+    let mut render = Render::new( 3840, 2160, 1000);
     render
         .lookfrom(13.0, 2.0, 3.0)
         .lookat(0.0, 0.0, 0.0)
@@ -95,5 +96,5 @@ fn main() {
         .aperture(0.6)
         .focus_dist(10.0)
         .ipd(0.06)
-        .render_scene(world, false);
+        .render_scene(world, true);
 }
